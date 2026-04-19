@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>ToDo</title>
+<style>
+  :root {
+    --bg: #0d0d10;
+    --panel: #17171c;
+    --border: #26262d;
+    --text: #f2f2f5;
+    --muted: #8a8a95;
+    --accent: #7c5cff;
+    --accent-hover: #9479ff;
+    --danger: #ff5c7a;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, "Segoe UI", "Noto Sans JP", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    padding: 24px 16px;
+  }
+  .app {
+    width: 100%;
+    max-width: 420px;
+  }
+  .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 20px;
+  }
+  .title {
+    font-size: 28px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+  }
+  .count {
+    font-size: 13px;
+    color: var(--muted);
+  }
+  .input-row {
+    display: flex;
+    gap: 8px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 8px;
+    margin-bottom: 16px;
+  }
+  .input-row input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--text);
+    font-size: 16px;
+    padding: 10px 12px;
+  }
+  .input-row input::placeholder { color: var(--muted); }
+  .input-row button {
+    background: var(--accent);
+    border: none;
+    color: #fff;
+    font-weight: 700;
+    padding: 10px 18px;
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background 0.15s;
+  }
+  .input-row button:hover { background: var(--accent-hover); }
+  .list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 16px;
+    animation: slide 0.2s ease;
+  }
+  @keyframes slide {
+    from { opacity: 0; transform: translateY(-4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .check {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: 2px solid var(--border);
+    cursor: pointer;
+    flex-shrink: 0;
+    display: grid;
+    place-items: center;
+    transition: all 0.15s;
+  }
+  .check.done {
+    background: var(--accent);
+    border-color: var(--accent);
+  }
+  .check.done::after {
+    content: "";
+    width: 8px;
+    height: 4px;
+    border-left: 2px solid #fff;
+    border-bottom: 2px solid #fff;
+    transform: rotate(-45deg) translate(1px, -1px);
+  }
+  .text {
+    flex: 1;
+    font-size: 15px;
+    word-break: break-word;
+  }
+  .text.done {
+    color: var(--muted);
+    text-decoration: line-through;
+  }
+  .del {
+    background: transparent;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 18px;
+    padding: 4px 8px;
+    border-radius: 8px;
+    transition: all 0.15s;
+  }
+  .del:hover {
+    color: var(--danger);
+    background: rgba(255, 92, 122, 0.1);
+  }
+  .empty {
+    text-align: center;
+    color: var(--muted);
+    padding: 48px 16px;
+    font-size: 14px;
+  }
+</style>
+</head>
+<body>
+  <div class="app">
+    <div class="header">
+      <div class="title">ToDo</div>
+      <div class="count" id="count">0 / 0</div>
+    </div>
+    <form class="input-row" id="form">
+      <input type="text" id="input" placeholder="タスクを追加..." autocomplete="off" />
+      <button type="submit">追加</button>
+    </form>
+    <ul class="list" id="list"></ul>
+    <div class="empty" id="empty">まだタスクがありません</div>
+  </div>
+
+<script>
+  const KEY = "todo_items_v1";
+  const $ = (id) => document.getElementById(id);
+  let items = JSON.parse(localStorage.getItem(KEY) || "[]");
+
+  const save = () => localStorage.setItem(KEY, JSON.stringify(items));
+
+  const render = () => {
+    const list = $("list");
+    list.innerHTML = "";
+    items.forEach((item, i) => {
+      const li = document.createElement("li");
+      li.className = "item";
+      li.innerHTML = `
+        <div class="check ${item.done ? "done" : ""}" data-i="${i}"></div>
+        <div class="text ${item.done ? "done" : ""}">${escapeHTML(item.text)}</div>
+        <button class="del" data-del="${i}">×</button>
+      `;
+      list.appendChild(li);
+    });
+    const done = items.filter((x) => x.done).length;
+    $("count").textContent = `${done} / ${items.length}`;
+    $("empty").style.display = items.length ? "none" : "block";
+  };
+
+  const escapeHTML = (s) =>
+    s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+  $("form").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const text = $("input").value.trim();
+    if (!text) return;
+    items.unshift({ text, done: false });
+    $("input").value = "";
+    save();
+    render();
+  });
+
+  $("list").addEventListener("click", (e) => {
+    const i = e.target.dataset.i;
+    const d = e.target.dataset.del;
+    if (i !== undefined) {
+      items[i].done = !items[i].done;
+      save();
+      render();
+    } else if (d !== undefined) {
+      items.splice(d, 1);
+      save();
+      render();
+    }
+  });
+
+  render();
+</script>
+</body>
+</html>
